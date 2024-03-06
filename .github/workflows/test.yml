@@ -30,6 +30,7 @@ jobs:
         mysql:
           - 5.6
           - 5.7
+          - 8.0.28
     needs:
       - check_test_execution_conditions
     services:
@@ -50,6 +51,29 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
+      - name: Setup MySQL variables
+        run: |
+          version=`echo ${{ matrix.mysql }} | awk -F. '{printf "%d%03d", $1, $2}'`
+          # 8.0 or later
+          if (( 8000 <= version )); then
+            # https://blog.n-z.jp/blog/2021-02-20-github-actions-services-mysqld-option.html
+            touch test.cnf
+            (
+              echo '[mysqld]';
+              echo 'default_authentication_plugin=mysql_native_password';
+              echo 'log_bin_trust_function_creators=ON';
+            ) > test.cnf
+            docker cp ./test.cnf ${{ job.services.mysql.id }}:/etc/mysql/conf.d/
+            docker restart ${{ job.services.mysql.id }}
+            for sleep in 0 ${WAITS:- 1 2 4 8 15 25 100}; do
+              sleep "$sleep"
+              health_status=`docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" ${{ job.services.mysql.id }}`
+              if [ 'starting' != "$health_status" ]; then
+                exit 0
+              fi
+            done
+            exit 1
+          fi
       - name: Run RSpec for ${{ matrix.mysql }}
         run: bundle exec rake spec`echo ${{ matrix.mysql }} | awk -F. '{print $1"_"$2}'`
         env:
