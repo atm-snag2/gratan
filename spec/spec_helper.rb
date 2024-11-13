@@ -13,18 +13,34 @@ RSpec.configure do |config|
   end
 end
 
-def mysql57?
-  ENV['MYSQL57'] == '1'
+def env_empty?(str)
+  str.nil? || str.empty? || str == '0'
 end
 
-MYSQL_PORT = mysql57? ? 14407 : 14406
+def mysql5_7?
+  !env_empty?(ENV['MYSQL5_7'])
+end
+
+MYSQL_PORT = if ENV['MYSQL_PORT'].blank?
+               3306
+             else
+               ENV['MYSQL_PORT'].to_i
+             end
+
+MYSQL_HOST = if ENV['MYSQL_HOST'].blank?
+               '127.0.0.1'
+             else
+               ENV['MYSQL_HOST']
+             end
+
+MYSQL_USER = 'root'
 
 def mysql
   client = nil
   retval = nil
 
   begin
-    client = Mysql2::Client.new(host: '127.0.0.1', username: 'root', port: MYSQL_PORT)
+    client = Mysql2::Client.new(host: MYSQL_HOST, username: MYSQL_USER, port: MYSQL_PORT)
     retval = yield(client)
   ensure
     client.close if client
@@ -127,7 +143,7 @@ def show_grants
     end
   end
 
-  if mysql57?
+  if mysql5_7?
     grants.each do |grant|
     end
   end
@@ -141,14 +157,14 @@ def client(user_options = {})
   end
 
   options = {
-    host: '127.0.0.1',
-    username: 'root',
+    host: MYSQL_HOST,
+    username: MYSQL_USER,
     port: MYSQL_PORT,
     ignore_user: IGNORE_USER,
     logger: Logger.new('/dev/null'),
   }
 
-  if mysql57?
+  if mysql5_7?
     options.update(
       override_sql_mode: true,
       use_show_create_user: true,
@@ -189,7 +205,7 @@ end
 
 class Array
   def normalize
-    if mysql57?
+    if mysql5_7?
       self.map do |i|
         i.sub(/ IDENTIFIED BY PASSWORD '[^']+'/, '')
          .sub(/ REQUIRE \w+\b/, '')
