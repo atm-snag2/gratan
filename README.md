@@ -140,10 +140,13 @@ end
 ## Run tests
 
 ```sh
-bundle install
-docker-compose up -d
-bundle exec rake
-# MYSQL57=1 bundle exec rake
+docker compose build
+# for MySQL 5.6 and 5.7
+docker compose run --rm rake
+# for MySQL 5.6
+docker compose run --rm rake spec56
+# for MySQL 5.7
+docker compose run --rm rake spec57
 ```
 
 ## Similar tools

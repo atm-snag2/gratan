@@ -17,14 +17,26 @@ def mysql57?
   ENV['MYSQL57'] == '1'
 end
 
-MYSQL_PORT = mysql57? ? 14407 : 14406
+MYSQL_PORT = if ENV['MYSQL_PORT'].blank?
+               3306
+             else
+               ENV['MYSQL_PORT'].to_i
+             end
+
+MYSQL_HOST = if ENV['MYSQL_HOST'].blank?
+               '127.0.0.1'
+             else
+               ENV['MYSQL_HOST']
+             end
+
+MYSQL_USER = 'root'
 
 def mysql
   client = nil
   retval = nil
 
   begin
-    client = Mysql2::Client.new(host: '127.0.0.1', username: 'root', port: MYSQL_PORT)
+    client = Mysql2::Client.new(host: MYSQL_HOST, username: MYSQL_USER, port: MYSQL_PORT)
     retval = yield(client)
   ensure
     client.close if client
@@ -141,8 +153,8 @@ def client(user_options = {})
   end
 
   options = {
-    host: '127.0.0.1',
-    username: 'root',
+    host: MYSQL_HOST,
+    username: MYSQL_USER,
     port: MYSQL_PORT,
     ignore_user: IGNORE_USER,
     logger: Logger.new('/dev/null'),
