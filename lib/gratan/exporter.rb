@@ -23,7 +23,9 @@ class Gratan::Exporter
       end
 
       @driver.show_grants(user, host) do |stmt|
-        grants << Gratan::GrantParser.parse(stmt, create_user)
+        grant = Gratan::GrantParser.parse(stmt, create_user)
+        next if grant.fetch(:privs).empty?
+        grants << grant
       end
     end
 

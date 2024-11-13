@@ -35,6 +35,9 @@ end
 
       expect(result).to be_truthy
 
+      expect(show_create_users).to match_array [
+        start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE NONE PASSWORD EXPIRE"),
+      ]
       expect(show_grants).to match_array [
         "GRANT SELECT, INSERT, UPDATE, DELETE ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40'",
         "GRANT SELECT, INSERT, UPDATE, DELETE ON `test`.* TO 'scott'@'localhost'",
@@ -93,7 +96,7 @@ end
       }
 
       expect(show_grants).to match_array [
-        "GRANT ALL PRIVILEGES ON *.* TO 'bob'@'%' REQUIRE SSL",
+        *grant_all_priv(user: 'bob', host: '%'),
         "GRANT SELECT ON `test`.* TO 'bob'@'%'",
         "GRANT SELECT, INSERT, UPDATE, DELETE ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40'",
         "GRANT SELECT, INSERT, UPDATE, DELETE ON `test`.* TO 'scott'@'localhost'",

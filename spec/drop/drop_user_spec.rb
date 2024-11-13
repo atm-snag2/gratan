@@ -52,7 +52,7 @@ end
       expect(show_grants).to match_array [
         "GRANT ALL PRIVILEGES ON `test`.* TO 'bob'@'localhost'",
         "GRANT USAGE ON *.* TO 'bob'@'localhost'",
-      ]
+      ].normalize
     end
   end
 

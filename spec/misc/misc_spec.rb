@@ -42,8 +42,15 @@ end
       expect(logger).to receive(:debug).with("[DEBUG] SET SQL_LOG_BIN = 0")
       allow(logger).to receive(:debug).with('[DEBUG] SET SQL_MODE = ""')
       expect(logger).to receive(:debug).with("[DEBUG] SELECT user, host FROM mysql.user")
-      expect(logger).to receive(:info).with("GRANT SELECT, INSERT, UPDATE, DELETE ON *.* TO 'scott'@'localhost' IDENTIFIED BY 'tiger'")
-      expect(logger).to receive(:info).with("GRANT SELECT, INSERT, UPDATE, DELETE ON `test`.* TO 'scott'@'localhost' IDENTIFIED BY 'tiger'")
+      create_user(user: 'scott', host: 'localhost', identified: 'tiger', privs: %w(SELECT INSERT UPDATE DELETE)).each do |sql|
+
+        expect(logger).to receive(:info).with(sql)
+      end
+      if mysql8_0?
+        expect(logger).to receive(:info).with("GRANT SELECT, INSERT, UPDATE, DELETE ON `test`.* TO 'scott'@'localhost'")
+      else
+        expect(logger).to receive(:info).with("GRANT SELECT, INSERT, UPDATE, DELETE ON `test`.* TO 'scott'@'localhost' IDENTIFIED BY 'tiger'")
+      end
       expect(logger).to receive(:info).with("FLUSH PRIVILEGES")
       logger
     end
@@ -72,7 +79,7 @@ end
       }
 
       expect(show_grants).to match_array [
-        "GRANT SELECT, INSERT, UPDATE, DELETE ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40'",
+        *create_user(user: 'scott', host: 'localhost', privs: %w(SELECT INSERT UPDATE DELETE), skip_create_user: true),
         "GRANT SELECT, INSERT, UPDATE, DELETE ON `test`.* TO 'scott'@'localhost'",
       ].normalize
     end

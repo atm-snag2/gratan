@@ -37,8 +37,12 @@ end
         RUBY
       }
 
+      expect(show_create_users).to match_array [
+        start_with("CREATE USER `bob`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*531E182E2F72080AB0740FE2F2D689DBE0146E04' REQUIRE NONE PASSWORD EXPIRE"),
+        start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*23AE809DDACAF96AF0FD78ED04B6A265E05AA257' REQUIRE SSL PASSWORD EXPIRE"),
+      ]
       expect(show_grants).to match_array [
-        "GRANT ALL PRIVILEGES ON *.* TO 'bob'@'localhost' IDENTIFIED BY PASSWORD '*531E182E2F72080AB0740FE2F2D689DBE0146E04' WITH GRANT OPTION",
+        *grant_all_priv(user: 'bob', host: 'localhost', auth: "IDENTIFIED BY PASSWORD '*531E182E2F72080AB0740FE2F2D689DBE0146E04'", with: 'GRANT OPTION'),
         "GRANT USAGE ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*23AE809DDACAF96AF0FD78ED04B6A265E05AA257' REQUIRE SSL",
       ].normalize
     end
@@ -64,8 +68,12 @@ end
         RUBY
       }
 
+      expect(show_create_users).to match_array [
+        start_with("CREATE USER `bob`@`localhost` IDENTIFIED WITH 'mysql_native_password' REQUIRE NONE PASSWORD EXPIRE "),
+        start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*BE1BDEC0AA74B4DCB079943E70528096CCA985F8' REQUIRE SSL PASSWORD EXPIRE"),
+      ]
       expect(show_grants).to match_array [
-        "GRANT ALL PRIVILEGES ON *.* TO 'bob'@'localhost' WITH GRANT OPTION",
+        *grant_all_priv(user: 'bob', host: 'localhost', with: 'GRANT OPTION'),
         "GRANT USAGE ON *.* TO 'scott'@'localhost' REQUIRE SSL",
       ].normalize
     end
@@ -91,8 +99,12 @@ end
         RUBY
       }
 
+      expect(show_create_users).to match_array [
+        start_with("CREATE USER `bob`@`localhost` IDENTIFIED WITH 'mysql_native_password' REQUIRE NONE PASSWORD EXPIRE"),
+        start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL PASSWORD EXPIRE"),
+      ]
       expect(show_grants).to match_array [
-        "GRANT ALL PRIVILEGES ON *.* TO 'bob'@'localhost' WITH GRANT OPTION",
+        *grant_all_priv(user: 'bob', host: 'localhost', with: 'GRANT OPTION'),
         "GRANT USAGE ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL",
       ].normalize
     end
@@ -118,8 +130,12 @@ end
         RUBY
       }
 
+      expect(show_create_users).to match_array [
+        start_with("CREATE USER `bob`@`localhost` IDENTIFIED WITH 'mysql_native_password' REQUIRE SSL PASSWORD EXPIRE"),
+        start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE X509 PASSWORD EXPIRE"),
+      ]
       expect(show_grants).to match_array [
-        "GRANT ALL PRIVILEGES ON *.* TO 'bob'@'localhost' REQUIRE SSL WITH GRANT OPTION",
+        *grant_all_priv(user: 'bob', host: 'localhost', required: 'SSL', with: 'GRANT OPTION'),
         "GRANT USAGE ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE X509",
       ].normalize
     end
@@ -129,6 +145,15 @@ end
     subject { client }
 
     it do
+      expect(show_create_users).to match_array [
+        start_with("CREATE USER `bob`@`localhost` IDENTIFIED WITH 'mysql_native_password' REQUIRE NONE PASSWORD EXPIRE"),
+        start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL PASSWORD EXPIRE"),
+      ]
+      expect(show_grants).to match_array [
+        *grant_all_priv(user: 'bob', host: 'localhost', with: 'GRANT OPTION'),
+        "GRANT USAGE ON *.* TO 'scott'@'localhost'",
+      ].map { |str| str.gsub(/'/, '`') }
+
       apply(subject) {
         <<-RUBY
 user 'scott', 'localhost', identified: 'tiger', required: 'SSL' do
@@ -145,10 +170,14 @@ end
         RUBY
       }
 
+      expect(show_create_users).to match_array [
+        start_with("CREATE USER `bob`@`localhost` IDENTIFIED WITH 'mysql_native_password' REQUIRE NONE PASSWORD"),
+        start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL WITH MAX_QUERIES_PER_HOUR 1 MAX_UPDATES_PER_HOUR 2 MAX_CONNECTIONS_PER_HOUR 3 MAX_USER_CONNECTIONS 4 PASSWORD"),
+      ]
       expect(show_grants).to match_array [
-        "GRANT ALL PRIVILEGES ON *.* TO 'bob'@'localhost'",
-        "GRANT USAGE ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL WITH GRANT OPTION MAX_QUERIES_PER_HOUR 1 MAX_UPDATES_PER_HOUR 2 MAX_CONNECTIONS_PER_HOUR 3 MAX_USER_CONNECTIONS 4",
-      ].normalize
+        *grant_all_priv(user: 'bob', host: 'localhost'),
+        "GRANT USAGE ON *.* TO 'scott'@'localhost' WITH GRANT OPTION",
+      ].map { |str| str.gsub(/'/, '`') }
     end
   end
 end

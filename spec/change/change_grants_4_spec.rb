@@ -31,7 +31,7 @@ end
 
       expect(show_grants).to match_array [
         "GRANT USAGE ON *.* TO 'scott'@'localhost'",
-      ]
+      ].normalize
     end
   end
 end
