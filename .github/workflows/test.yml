@@ -1,0 +1,57 @@
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check_test_execution_conditions:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: xt0rted/block-autosquash-commits-action@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  rspec:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ruby:
+          - 3.0.6
+          - 3.1.4
+        mysql:
+          - 5.6
+          - 5.7
+    needs:
+      - check_test_execution_conditions
+    services:
+      mysql:
+        image: mysql:${{ matrix.mysql }}
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        options: >-
+          --health-cmd "mysqladmin ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - "3306:3306"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - name: Run RSpec for ${{ matrix.mysql }}
+        run: bundle exec rake spec`echo ${{ matrix.mysql }} | tr -d '.'`
+        env:
+          MYSQL_HOST: 127.0.0.1
