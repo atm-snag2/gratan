@@ -1,12 +1,32 @@
-mysql56:
-  image: "mysql:5.6"
-  ports:
-    - "14406:3306"
-  environment:
-    MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-mysql57:
-  image: "mysql:5.7"
-  ports:
-    - "14407:3306"
-  environment:
-    MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+services:
+  mysql5_6:
+    image: "mysql:5.6"
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    healthcheck:
+      test: ["CMD", "mysql", "-h", "localhost", "-u", "root", "--execute", "SHOW DATABASES;"]
+      start_period: 30s
+      timeout: 5s
+      interval: 5s
+      retries: 5
+  mysql5_7:
+    image: "mysql:5.7"
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    healthcheck:
+      test: ["CMD", "mysql", "-h", "localhost", "-u", "root", "--execute", "SHOW DATABASES;"]
+      start_period: 30s
+      timeout: 5s
+      interval: 5s
+      retries: 5
+  rake:
+    build: .
+    depends_on:
+      mysql5_6:
+        condition: service_healthy
+      mysql5_7:
+        condition: service_healthy
+    entrypoint: ["rake"]
+    volumes:
+      - .:/usr/src/app
+    working_dir:  /usr/src/app
