@@ -14,6 +14,7 @@ suffixes.each do |suffix|
       ENV['MYSQL_HOST'] = "mysql#{suffix}"
     end
     ENV['MYSQL5_7'] = (%w(5_7 8_0).include?(suffix) ? 1 : 0).to_s
+    ENV['MYSQL8_0'] = (%w(8_0).include?(suffix) ? 1 : 0).to_s
     Rake::Task['spec'].execute
   end
 end

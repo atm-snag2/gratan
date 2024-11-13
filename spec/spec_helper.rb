@@ -18,7 +18,11 @@ def env_empty?(str)
 end
 
 def mysql5_7?
-  !env_empty?(ENV['MYSQL5_7'])
+  !env_empty?(ENV['MYSQL5_7']) || mysql8_0?
+end
+
+def mysql8_0?
+  !env_empty?(ENV['MYSQL8_0'])
 end
 
 MYSQL_PORT = if ENV['MYSQL_PORT'].blank?
