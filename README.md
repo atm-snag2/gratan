@@ -141,12 +141,10 @@ end
 
 ```sh
 docker compose build
-# for MySQL 5.6 and 5.7
-docker compose run --rm rake
 # for MySQL 5.6
-docker compose run --rm rake spec5_6
+docker compose run --rm -e MYSQL_HOST=mysql5_6 rake spec
 # for MySQL 5.7
-docker compose run --rm rake spec5_7
+docker compose run --rm -e MYSQL_HOST=mysql5_7 -e MYSQL5_7=1 rake spec
 ```
 
 ## Similar tools

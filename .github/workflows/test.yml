@@ -51,6 +51,6 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - name: Run RSpec for ${{ matrix.mysql }}
-        run: bundle exec rake spec`echo ${{ matrix.mysql }} | awk -F. '{print $1"_"$2}'`
+        run: bundle exec rake spec
         env:
-          MYSQL_HOST: 127.0.0.1
+          MYSQL5_7: ${{ matrix.mysql == '5.7' && '1' || '0' }}

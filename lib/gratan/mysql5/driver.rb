@@ -1,4 +1,4 @@
-class Gratan::Driver
+class Gratan::Mysql5::Driver
   include Gratan::Logger::Helper
 
   ER_NO_SUCH_TABLE = 1146
