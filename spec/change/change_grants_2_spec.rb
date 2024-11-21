@@ -17,6 +17,23 @@ end
     }
   end
 
+  def expect_initial_state
+    expect(show_create_users).to match_array [
+      start_with("CREATE USER `bob`@`localhost` IDENTIFIED WITH 'mysql_native_password' REQUIRE NONE PASSWORD EXPIRE"),
+      start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL PASSWORD EXPIRE"),
+    ]
+    expect(show_grants).to match_array [
+      *grant_all_priv(user: 'bob', host: 'localhost', with: 'GRANT OPTION'),
+      "GRANT USAGE ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL",
+    ].normalize
+  end
+
+  context 'when before subject' do
+    it do
+      expect_initial_state
+    end
+  end
+
   context 'when update password' do
     subject { client }
 
@@ -99,14 +116,7 @@ end
         RUBY
       }
 
-      expect(show_create_users).to match_array [
-        start_with("CREATE USER `bob`@`localhost` IDENTIFIED WITH 'mysql_native_password' REQUIRE NONE PASSWORD EXPIRE"),
-        start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL PASSWORD EXPIRE"),
-      ]
-      expect(show_grants).to match_array [
-        *grant_all_priv(user: 'bob', host: 'localhost', with: 'GRANT OPTION'),
-        "GRANT USAGE ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL",
-      ].normalize
+      expect_initial_state
     end
   end
 
@@ -145,15 +155,6 @@ end
     subject { client }
 
     it do
-      expect(show_create_users).to match_array [
-        start_with("CREATE USER `bob`@`localhost` IDENTIFIED WITH 'mysql_native_password' REQUIRE NONE PASSWORD EXPIRE"),
-        start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL PASSWORD EXPIRE"),
-      ]
-      expect(show_grants).to match_array [
-        *grant_all_priv(user: 'bob', host: 'localhost', with: 'GRANT OPTION'),
-        "GRANT USAGE ON *.* TO 'scott'@'localhost'",
-      ].map { |str| str.gsub(/'/, '`') }
-
       apply(subject) {
         <<-RUBY
 user 'scott', 'localhost', identified: 'tiger', required: 'SSL' do
