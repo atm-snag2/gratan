@@ -87,7 +87,7 @@ end
 
       expect(show_create_users).to match_array [
         start_with("CREATE USER `bob`@`localhost` IDENTIFIED WITH 'mysql_native_password' REQUIRE NONE PASSWORD EXPIRE "),
-        start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*BE1BDEC0AA74B4DCB079943E70528096CCA985F8' REQUIRE SSL PASSWORD EXPIRE"),
+        start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' REQUIRE SSL PASSWORD EXPIRE"),
       ]
       expect(show_grants).to match_array [
         *grant_all_priv(user: 'bob', host: 'localhost', with: 'GRANT OPTION'),

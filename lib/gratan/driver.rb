@@ -78,8 +78,12 @@ class Gratan::Driver
       return
     end
 
+
     sql = "CREATE USER #{quote_user(user, host)}"
-    sql << " IDENTIFIED WITH #{auth_plugin} BY #{quote_identifier(identified)}" if identified
+    if identified
+      prepos, quoted_identifier = quote_identifier_with_preposition(identified, options)
+      sql << " IDENTIFIED WITH #{auth_plugin} #{prepos} #{quoted_identifier}"
+    end
     sql << " REQUIRE #{required}" if required
     sql << " WITH #{with_option}" if with_option
     update(sql)
@@ -122,9 +126,11 @@ class Gratan::Driver
   end
 
   def identify(user, host, identifier, auth_plugin = "mysql_native_password")
-    sql = "ALTER USER %s IDENTIFIED WITH #{auth_plugin} BY %s" % [
+    prepos, quoted_identifier = quote_identifier_with_preposition(identifier)
+
+    sql = "ALTER USER %s IDENTIFIED WITH #{auth_plugin} #{prepos} %s" % [
       quote_user(user, host),
-      quote_identifier(identifier),
+      quoted_identifier,
     ]
 
     update(sql)
@@ -135,17 +141,11 @@ class Gratan::Driver
   end
 
   def set_password(user, host, password, auth_plugin = 'mysql_native_password', options = {})
-    password ||= ''
-    prepos = 'BY'
+    prepos, quoted_identifier = quote_identifier_with_preposition(password, options)
 
-    unless options[:hash]
-      prepos = 'AS'
-      password = query("SELECT CONCAT('*', UPPER(SHA1(UNHEX(SHA1('#{escape(password)}'))))) AS PASSWORD").first.values.first
-    end
-
-    sql = "ALTER USER %s IDENTIFIED WITH #{auth_plugin} #{prepos} '%s'" % [
+    sql = "ALTER USER %s IDENTIFIED WITH #{auth_plugin} #{prepos} %s" % [
       quote_user(user, host),
-      escape(password),
+      quoted_identifier,
     ]
 
     update(sql)
@@ -281,6 +281,27 @@ class Gratan::Driver
     end
 
     object_type + object.split('.', 2).map {|i| i == '*' ? i : "`#{i}`" }.join('.')
+  end
+
+  def quote_identifier_with_preposition(identifier, options = {})
+    identifier = if identifier
+                   identifier.dup
+                 else
+                   ''
+                 end
+    prepos = 'BY'
+    quoted_identifier = quote_identifier(identifier)
+    if options[:hash]
+      prepos = 'AS'
+      password = query("SELECT CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{quoted_identifier}))))) AS PASSWORD").first.values.first
+    elsif identifier.slice!(/^\s*PASSWORD\s+/i)
+      prepos = 'AS'
+      quoted_identifier = identifier
+    else
+      quoted_identifier = quote_identifier(identifier)
+    end
+
+    [prepos, quoted_identifier]
   end
 
   def quote_identifier(identifier)
