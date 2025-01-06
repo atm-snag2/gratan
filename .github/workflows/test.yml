@@ -27,6 +27,7 @@ jobs:
         ruby:
           - 3.0.6
           - 3.1.4
+          - 3.4.1
         mysql:
           # TODO: skip old env
           # - 5.6
