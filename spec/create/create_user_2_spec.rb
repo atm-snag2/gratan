@@ -167,7 +167,7 @@ end
       expect(show_grants).to match_array [
         "GRANT SELECT, INSERT, UPDATE, DELETE ON *.* TO 'scott'@'localhost'",
         "GRANT SELECT, INSERT, UPDATE, DELETE ON `test`.* TO 'scott'@'localhost'",
-      ]
+      ].normalize
     end
   end
 end

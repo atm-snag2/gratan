@@ -46,7 +46,7 @@ end
       expect(show_grants).to match_array [
         "GRANT USAGE ON *.* TO 'scott'@'%'",
         "GRANT EXECUTE ON PROCEDURE `#{TEST_DATABASE}`.`my_prcd` TO 'scott'@'%'"
-      ]
+      ].normalize
     end
   end
 
@@ -88,7 +88,7 @@ end
       expect(show_grants).to match_array [
         "GRANT USAGE ON *.* TO 'scott'@'%'",
         "GRANT EXECUTE ON FUNCTION `#{TEST_DATABASE}`.`my_func` TO 'scott'@'%'"
-      ]
+      ].normalize
     end
   end
 end

@@ -4,7 +4,7 @@ require 'gratan'
 require 'tempfile'
 require 'timecop'
 
-IGNORE_USER = /\A(|root)\z/
+IGNORE_USER = /\A((|root)\z|mysql\.)/
 TEST_DATABASE = 'gratan_test'
 
 RSpec.configure do |config|
@@ -18,7 +18,11 @@ def env_empty?(str)
 end
 
 def mysql5_7?
-  !env_empty?(ENV['MYSQL5_7'])
+  !env_empty?(ENV['MYSQL5_7']) || mysql8_0?
+end
+
+def mysql8_0?
+  !env_empty?(ENV['MYSQL8_0'])
 end
 
 MYSQL_PORT = if ENV['MYSQL_PORT'].blank?
@@ -128,8 +132,27 @@ def clean_grants
   end
 end
 
+def show_create_users
+  create_users = []
+
+  mysql do |client|
+    select_users(client).each do |user, host|
+      next if IGNORE_USER =~ user
+      user_host =  "'%s'@'%s'" % [client.escape(user), client.escape(host)]
+
+      client.query("SHOW CREATE USER #{user_host}").each do |row|
+        create_users << row.values.first
+      end
+    end
+  end
+
+  create_users.sort
+end
+
 def show_grants
   grants = []
+
+  priv_re = Regexp.union(Gratan::GrantParser::STATIC_PRIVS)
 
   mysql do |client|
     select_users(client).each do |user, host|
@@ -137,14 +160,11 @@ def show_grants
       user_host =  "'%s'@'%s'" % [client.escape(user), client.escape(host)]
 
       client.query("SHOW GRANTS FOR #{user_host}").each do |row|
-        grants << row.values.first
+        grant = row.values.first
+        grant_without_grant_option = grant.sub(/\s+WITH\s+GRANT\s+OPTION\z/, '')
+        next unless priv_re.match?(grant_without_grant_option)
+        grants << grant
       end
-
-    end
-  end
-
-  if mysql5_7?
-    grants.each do |grant|
     end
   end
 
@@ -203,13 +223,119 @@ def apply(cli = client)
   end
 end
 
+def grant_all_priv(user:, host: '%', database: '*', table: '*', auth: nil, required: 'SSL', with: nil)
+  auth_clause = auth.blank? ? '' : " #{auth}"
+  require_clause = required.blank? ? '' : " REQUIRE #{required}"
+  with_clause = with.blank? ? '' : " WITH #{with}"
+
+  if mysql8_0?
+    all_privs = [
+      'SELECT',
+      'INSERT',
+      'UPDATE',
+      'DELETE',
+      'CREATE',
+      'DROP',
+      'RELOAD',
+      'SHUTDOWN',
+      'PROCESS',
+      'FILE',
+      'REFERENCES',
+      'INDEX',
+      'ALTER',
+      'SHOW DATABASES',
+      'SUPER',
+      'CREATE TEMPORARY TABLES',
+      'LOCK TABLES',
+      'EXECUTE',
+      'REPLICATION SLAVE',
+      'REPLICATION CLIENT',
+      'CREATE VIEW',
+      'SHOW VIEW',
+      'CREATE ROUTINE',
+      'ALTER ROUTINE',
+      'CREATE USER',
+      'EVENT',
+      'TRIGGER',
+      'CREATE TABLESPACE',
+      'CREATE ROLE',
+      'DROP ROLE',
+    ]
+    [
+      "GRANT #{all_privs.join(', ')} ON #{database}.#{table} TO `#{user}`@`#{host}`#{with_clause}",
+    ]
+  else
+    [
+      "GRANT ALL PRIVILEGES ON #{database}.#{table} TO '#{user}'@'#{host}'#{auth_clause}#{require_clause}#{with_clause}",
+    ]
+  end
+end
+
+def create_user(user:, host: '%', database: '*', table: '*', identified: nil, password: nil, privs: nil, skip_create_user: false)
+  if privs.nil?
+    privs = ['USAGE']
+  end
+  if mysql8_0?
+    identified_with = if !identified.nil?
+                        " IDENTIFIED WITH mysql_native_password BY '#{identified}'"
+                      else
+                        ''
+                      end
+    sqls = [
+      "CREATE USER '#{user}'@'#{host}'#{identified_with}",
+      "GRANT #{privs.join(', ')} ON #{database}.#{table} TO '#{user}'@'#{host}'",
+    ]
+    if skip_create_user
+      sqls[1..-1]
+    else
+      sqls
+    end
+  else
+    identified_by = if !identified.nil?
+                      %( IDENTIFIED BY '#{identified}')
+                    elsif !password.nil?
+                      %( IDENTIFIED BY PASSWORD '#{password}')
+                    else
+                      ''
+                    end
+    [
+      "GRANT #{privs.join(', ')} ON #{database}.#{table} TO '#{user}'@'#{host}'#{identified_by}",
+    ]
+  end
+end
+
+def user_host_normalize(str)
+  if mysql8_0?
+    str.sub(/'([^']+)'@'([^']+)'/, '`\1`@`\2`')
+  else
+    str
+  end
+end
+
 class Array
   def normalize
     if mysql5_7?
       self.map do |i|
-        i.sub(/ IDENTIFIED BY PASSWORD '[^']+'/, '')
-         .sub(/ REQUIRE \w+\b/, '')
-         .sub(/ WITH GRANT OPTION [\w ]+\z/, ' WITH GRANT OPTION')
+        ii = i.sub(/ IDENTIFIED BY PASSWORD '[^']+'/, '')
+          .sub(/ REQUIRE \w+\b/, '')
+          .sub(/ WITH GRANT OPTION [\w ]+\z/, ' WITH GRANT OPTION')
+        if mysql8_0?
+          ii.sub(/'([^']+)'@'([^']+)'/, '`\1`@`\2`')
+            .sub(/((?:\A| )GRANT )(.*?)( ON )/) do
+              grant, body, on = $1, $2, $3
+              new_body = body.split(/, /).map do |priv_type_columns|
+                _, priv_type, cols = */\A([^\(]+)\(([^\)]+)\)\z/.match(priv_type_columns)
+                if priv_type && cols
+                  "#{priv_type}(#{cols.split(/, /).map { |c| "`#{c}`" }.join(', ')})"
+                else
+                  priv_type_columns
+                end
+              end.join(', ')
+              "#{grant}#{new_body}#{on}"
+            end
+        else
+          ii
+        end
       end
     else
       self

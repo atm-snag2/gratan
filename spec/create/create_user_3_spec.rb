@@ -24,6 +24,7 @@ end
       }
 
       expect(result).to be_falsey
+      expect(show_create_users).to match_array []
       expect(show_grants).to match_array []
     end
   end
@@ -78,10 +79,13 @@ end
         RUBY
       }
 
+      expect(show_create_users).to match_array [
+        start_with("CREATE USER `bob`@`%` IDENTIFIED WITH 'mysql_native_password' REQUIRE SSL PASSWORD EXPIRE"),
+      ]
       expect(show_grants).to match_array [
-        "GRANT ALL PRIVILEGES ON *.* TO 'bob'@'%' REQUIRE SSL",
-        "GRANT SELECT ON `test`.* TO 'bob'@'%'",
-      ].normalize
+        *grant_all_priv(user: 'bob', host: '%'),
+        user_host_normalize("GRANT SELECT ON `test`.* TO 'bob'@'%'"),
+      ]
     end
   end
 
@@ -89,6 +93,9 @@ end
     subject { client(dry_run: true) }
 
     it do
+      expect(show_create_users).to match_array []
+      expect(show_grants).to match_array []
+
       apply(subject) {
         <<-RUBY
 user 'scott', 'localhost', identified: 'tiger' do
@@ -109,6 +116,7 @@ end
         RUBY
       }
 
+      expect(show_create_users).to match_array []
       expect(show_grants).to match_array []
     end
   end

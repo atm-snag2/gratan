@@ -214,7 +214,7 @@ class Gratan::Client
       priv[0].upcase!
 
       if priv[1]
-        priv[1] = priv[1].split(',').map {|i| i.gsub(')', '').strip }.sort.join(', ')
+        priv[1] = priv[1].split(',').map { |i| i.gsub(/[`')]/, '').strip }.sort.join(', ')
         priv[1] << ')'
       end
 

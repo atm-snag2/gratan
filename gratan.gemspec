@@ -22,8 +22,9 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'term-ansicolor'
   spec.add_dependency 'deep_merge'
   spec.add_dependency 'hashie'
+  spec.add_dependency 'csv'
   spec.add_development_dependency 'bundler'
-  spec.add_development_dependency 'rake', '~> 10.0'
+  spec.add_development_dependency 'rake', '~> 12.3.2'
   spec.add_development_dependency 'rspec', '>= 3.0.0'
   spec.add_development_dependency 'timecop'
 end

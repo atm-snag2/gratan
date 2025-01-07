@@ -63,18 +63,35 @@ class Gratan::Driver
 
   def create_user(user, host, options = {})
     objects = options[:objects]
+    identified = options[:options][:identified]
+    required = options[:required]
+    with_option = options[:with]
+    auth_plugin = options[:auth_plugin] || "mysql_native_password"
     grant_options = options[:options]
-    granted = false
-
-    objects.each do |object_or_regexp, object_options|
-      expand_object(object_or_regexp).each do |object|
-        grant(user, host, object, grant_options.merge(object_options))
-        granted = true
-      end
+    required ||= grant_options.delete(:required)
+    granted = objects.keys.any? do |object_or_regexp|
+      !expand_object(object_or_regexp).empty?
     end
 
     unless granted
       log(:warn, "there was no privileges to grant to #{quote_user(user, host)}", :color => :yellow)
+      return
+    end
+
+
+    sql = "CREATE USER #{quote_user(user, host)}"
+    if identified
+      prepos, quoted_identifier = quote_identifier_with_preposition(identified, options)
+      sql << " IDENTIFIED WITH #{auth_plugin} #{prepos} #{quoted_identifier}"
+    end
+    sql << " REQUIRE #{required}" if required
+    sql << " WITH #{with_option}" if with_option
+    update(sql)
+
+    objects.each do |object_or_regexp, object_options|
+      expand_object(object_or_regexp).each do |object|
+        grant(user, host, object, grant_options.merge(object_options))
+      end
     end
   end
 
@@ -85,7 +102,6 @@ class Gratan::Driver
 
   def grant(user, host, object, options)
     privs = options.fetch(:privs)
-    identified = options[:identified]
     required = options[:required]
     with_option = options[:with]
 
@@ -95,7 +111,6 @@ class Gratan::Driver
       quote_user(user, host),
     ]
 
-    sql << " IDENTIFIED BY #{quote_identifier(identified)}" if identified
     sql << " REQUIRE #{required}" if required
     sql << " WITH #{with_option}" if with_option
 
@@ -110,29 +125,27 @@ class Gratan::Driver
     end
   end
 
-  def identify(user, host, identifier)
-    sql = 'GRANT USAGE ON *.* TO %s IDENTIFIED BY %s' % [
+  def identify(user, host, identifier, auth_plugin = "mysql_native_password")
+    prepos, quoted_identifier = quote_identifier_with_preposition(identifier)
+
+    sql = "ALTER USER %s IDENTIFIED WITH #{auth_plugin} #{prepos} %s" % [
       quote_user(user, host),
-      quote_identifier(identifier),
+      quoted_identifier,
     ]
 
     update(sql)
 
     if (identifier || '').empty?
-      set_password(user, host, identifier)
+      set_password(user, host, identifier, auth_plugin)
     end
   end
 
-  def set_password(user, host, password, options = {})
-    password ||= ''
+  def set_password(user, host, password, auth_plugin = 'mysql_native_password', options = {})
+    prepos, quoted_identifier = quote_identifier_with_preposition(password, options)
 
-    unless options[:hash]
-      password = "PASSWORD('#{escape(password)}')"
-    end
-
-    sql = 'SET PASSWORD FOR %s = %s' % [
+    sql = "ALTER USER %s IDENTIFIED WITH #{auth_plugin} #{prepos} %s" % [
       quote_user(user, host),
-      password,
+      quoted_identifier,
     ]
 
     update(sql)
@@ -141,7 +154,7 @@ class Gratan::Driver
   def set_require(user, host, required)
     required ||= 'NONE'
 
-    sql = 'GRANT USAGE ON *.* TO %s REQUIRE %s' % [
+    sql = 'ALTER USER %s REQUIRE %s' % [
       quote_user(user, host),
       required
     ]
@@ -166,7 +179,7 @@ class Gratan::Driver
 
   def revoke0(user, host, object, privs)
     sql = 'REVOKE %s ON %s FROM %s' % [
-      privs.join(', '),
+      privs.join(', ').gsub('\'', '').strip,
       quote_object(object),
       quote_user(user, host),
     ]
@@ -175,13 +188,20 @@ class Gratan::Driver
   end
 
   def update_with_option(user, host, object, with_option)
-    options = []
+    update_with_grant_option(user, host, object, with_option)
+    update_with_resource_option(user, host, with_option)
+  end
 
+  def update_with_grant_option(user, host, object, with_option)
     if with_option =~ /\bGRANT\s+OPTION\b/i
-      options << 'GRANT OPTION'
+      grant(user, host, object, :privs => ['USAGE'], :with => 'GRANT OPTION')
     else
       revoke(user, host, object, :privs => ['GRANT OPTION'])
     end
+  end
+
+  def update_with_resource_option(user, host, with_option)
+    options = []
 
     %w(
       MAX_QUERIES_PER_HOUR
@@ -199,8 +219,14 @@ class Gratan::Driver
     end
 
     unless options.empty?
-      grant(user, host, object, :privs => ['USAGE'], :with => options.join(' '))
+      alter_user_with(user, host, with: options.join(' '))
     end
+  end
+
+  def alter_user_with(user, host, with:)
+    sql = "ALTER USER #{quote_user(user, host)}"
+    sql << " WITH #{with}" if with
+    update(sql)
   end
 
   def disable_log_bin_local
@@ -255,6 +281,27 @@ class Gratan::Driver
     end
 
     object_type + object.split('.', 2).map {|i| i == '*' ? i : "`#{i}`" }.join('.')
+  end
+
+  def quote_identifier_with_preposition(identifier, options = {})
+    identifier = if identifier
+                   identifier.dup
+                 else
+                   ''
+                 end
+    prepos = 'BY'
+    quoted_identifier = quote_identifier(identifier)
+    if options[:hash]
+      prepos = 'AS'
+      password = query("SELECT CONCAT('*', UPPER(SHA1(UNHEX(SHA1(#{quoted_identifier}))))) AS PASSWORD").first.values.first
+    elsif identifier.slice!(/^\s*PASSWORD\s+/i)
+      prepos = 'AS'
+      quoted_identifier = identifier
+    else
+      quoted_identifier = quote_identifier(identifier)
+    end
+
+    [prepos, quoted_identifier]
   end
 
   def quote_identifier(identifier)

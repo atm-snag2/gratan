@@ -113,7 +113,10 @@ end
     end
 
     it do
-      expect(subject.export.strip).to eq grantfile.strip
+      if RUBY_VERSION >= '3.4.0'
+        grantfile.sub!(/:with=>/, 'with: ')
+      end
+      expect(subject.export.strip).to match grantfile.strip
     end
   end
 end

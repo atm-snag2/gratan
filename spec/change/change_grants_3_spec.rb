@@ -31,6 +31,26 @@ end
     }
   end
 
+  def expect_initial_state
+    expect(show_create_users).to match_array [
+      start_with("CREATE USER `bob`@`localhost` IDENTIFIED WITH 'mysql_native_password' REQUIRE NONE PASSWORD EXPIRE"),
+      start_with("CREATE USER `scott`@`localhost` IDENTIFIED WITH 'mysql_native_password' AS '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL PASSWORD EXPIRE"),
+    ]
+    expect(show_grants).to match_array [
+      "GRANT ALL PRIVILEGES ON `test`.* TO 'bob'@'localhost'",
+      "GRANT SELECT (user) ON `mysql`.`user` TO 'scott'@'localhost'",
+      "GRANT SELECT, INSERT ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL",
+      "GRANT UPDATE, DELETE ON `test`.* TO 'scott'@'localhost'",
+      "GRANT USAGE ON *.* TO 'bob'@'localhost'",
+    ].normalize
+  end
+
+  context 'when before subject' do
+    it do
+      expect_initial_state
+    end
+  end
+
   context 'when grant privs' do
     subject { client(dry_run: true) }
 
@@ -70,13 +90,7 @@ end
         RUBY
       }
 
-      expect(show_grants).to match_array [
-        "GRANT ALL PRIVILEGES ON `test`.* TO 'bob'@'localhost'",
-        "GRANT SELECT (user) ON `mysql`.`user` TO 'scott'@'localhost'",
-        "GRANT SELECT, INSERT ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL",
-        "GRANT UPDATE, DELETE ON `test`.* TO 'scott'@'localhost'",
-        "GRANT USAGE ON *.* TO 'bob'@'localhost'",
-      ].normalize
+      expect_initial_state
     end
   end
 
@@ -108,13 +122,7 @@ end
         RUBY
       }
 
-      expect(show_grants).to match_array [
-        "GRANT ALL PRIVILEGES ON `test`.* TO 'bob'@'localhost'",
-        "GRANT SELECT (user) ON `mysql`.`user` TO 'scott'@'localhost'",
-        "GRANT SELECT, INSERT ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL",
-        "GRANT UPDATE, DELETE ON `test`.* TO 'scott'@'localhost'",
-        "GRANT USAGE ON *.* TO 'bob'@'localhost'",
-      ].normalize
+      expect_initial_state
     end
   end
 
@@ -152,13 +160,7 @@ end
         RUBY
       }
 
-      expect(show_grants).to match_array [
-        "GRANT ALL PRIVILEGES ON `test`.* TO 'bob'@'localhost'",
-        "GRANT SELECT (user) ON `mysql`.`user` TO 'scott'@'localhost'",
-        "GRANT SELECT, INSERT ON *.* TO 'scott'@'localhost' IDENTIFIED BY PASSWORD '*F2F68D0BB27A773C1D944270E5FAFED515A3FA40' REQUIRE SSL",
-        "GRANT UPDATE, DELETE ON `test`.* TO 'scott'@'localhost'",
-        "GRANT USAGE ON *.* TO 'bob'@'localhost'",
-      ].normalize
+      expect_initial_state
     end
   end
 end

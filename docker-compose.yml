@@ -19,12 +19,25 @@ services:
       timeout: 5s
       interval: 5s
       retries: 5
+  mysql8_0:
+    image: "mysql:8.0.28"
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    command: --default-authentication-plugin=mysql_native_password --log-bin-trust-function-creators=ON
+    healthcheck:
+      test: ["CMD", "mysql", "-h", "localhost", "-u", "root", "--execute", "SHOW DATABASES;"]
+      start_period: 30s
+      timeout: 5s
+      interval: 5s
+      retries: 5
   rake:
     build: .
     depends_on:
       mysql5_6:
         condition: service_healthy
       mysql5_7:
+        condition: service_healthy
+      mysql8_0:
         condition: service_healthy
     entrypoint: ["rake"]
     volumes:

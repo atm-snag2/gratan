@@ -1,4 +1,50 @@
 class Gratan::GrantParser
+  # https://dev.mysql.com/doc/refman/8.0/ja/privileges-provided.html#privileges-provided-summary
+  STATIC_PRIVS = [
+    'ALL',
+    'ALL PRIVILEGES',
+    'ALTER',
+    'ALTER ROUTINE',
+    'CREATE',
+    'CREATE ROLE',
+    'CREATE ROUTINE',
+    'CREATE TABLESPACE',
+    'CREATE TEMPORARY TABLES',
+    'CREATE USER',
+    'CREATE VIEW',
+    'DELETE',
+    'DROP',
+    'DROP ROLE',
+    'EVENT',
+    'EXECUTE',
+    'FILE',
+    'GRANT OPTION',
+    'INDEX',
+    'INSERT',
+    'LOCK TABLES',
+    'PROCESS',
+    'PROXY',
+    'REFERENCES',
+    'RELOAD',
+    'REPLICATION CLIENT',
+    'REPLICATION SLAVE',
+    'SELECT',
+    'SHOW DATABASES',
+    'SHOW VIEW',
+    'SHUTDOWN',
+    'SUPER',
+    'TRIGGER',
+    'UPDATE',
+    'USAGE',
+  ]
+
+  CAN_USE_WITH_COLUMN_LIST_PRIVS = [
+    'INSERT',
+    'REFERENCES',
+    'SELECT',
+    'UPDATE',
+  ]
+
   def initialize(stmt, create_user = nil)
     @stmt = stmt.strip
     @create_user = create_user
@@ -34,7 +80,7 @@ class Gratan::GrantParser
     required = $1
 
     if @create_user
-      @create_user.slice!(/\s+REQUIRE\s+(\S+(?:\s+'[^']+')?)(?:\s+WITH\s+(.+))?\s+PASSWORD\s+.+\z/)
+      @create_user.slice!(/\s+REQUIRE\s+(\S+(?:\s+'[^']+')?)(?:\s+WITH\s+(.+?))?\s+PASSWORD\s+.+\z/)
       required = $1
       resource_option = $2
 
@@ -66,7 +112,7 @@ class Gratan::GrantParser
   end
 
   def parse_main
-    md = /\AGRANT\s+(.+?)\s+ON\s+(.+?)\s+TO\s+'(.*)'@'(.+)'\z/.match(@stmt)
+    md = /\AGRANT\s+(.+?)\s+ON\s+(.+?)\s+TO\s+['`](.*)['`]@['`](.+)['`]\z/.match(@stmt)
     privs, object, user, host = md.captures
     @parsed[:privs] = parse_privs(privs.strip)
     @parsed[:object] = object.gsub('`', '').strip
@@ -82,6 +128,24 @@ class Gratan::GrantParser
       priv_list << priv.strip.sub(/,\z/, '').strip
     end
 
-    priv_list
+    priv_list.select(&method(:static_priv?))
+  end
+
+  def static_priv?(priv)
+    @static_priv_regexp ||= Regexp.new(
+      "\\A#{
+        Regexp.union(
+          STATIC_PRIVS.map { |priv| priv.gsub(/\s+/, '\s+') }.map { |re| Regexp.new(re) }
+        )
+      }\\z"
+    )
+    @can_use_with_column_list_privs_regexp ||= Regexp.new(
+      "\\A#{
+        Regexp.union(
+          CAN_USE_WITH_COLUMN_LIST_PRIVS.map { |priv| Regexp.new(priv) }
+        )
+      }\\s+\\("
+    )
+    @static_priv_regexp.match(priv) || @can_use_with_column_list_privs_regexp.match(priv)
   end
 end

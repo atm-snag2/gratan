@@ -23,7 +23,7 @@ describe 'Gratan::Client#apply' do
         expect(show_grants).to match_array [
           "GRANT USAGE ON *.* TO 'scott'@'localhost'",
           "GRANT EXECUTE ON FUNCTION `#{TEST_DATABASE}`.`foo` TO 'scott'@'localhost'"
-        ]
+        ].normalize
       end
     end
   end
@@ -52,7 +52,7 @@ describe 'Gratan::Client#apply' do
         expect(show_grants).to match_array [
           "GRANT USAGE ON *.* TO 'scott'@'localhost'",
           "GRANT EXECUTE ON PROCEDURE `#{TEST_DATABASE}`.`foo` TO 'scott'@'localhost'"
-        ]
+        ].normalize
       end
     end
   end
