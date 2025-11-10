@@ -8,8 +8,10 @@ IGNORE_USER = /\A(|root)\z/
 TEST_DATABASE = 'gratan_test'
 
 RSpec.configure do |config|
-  config.before(:each) do
-    clean_grants
+  config.before(:each) do |example|
+    unless example.metadata[:skip_db_connection]
+      clean_grants
+    end
   end
 end
 
