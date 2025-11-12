@@ -1,0 +1,30 @@
+{
+  "name": "Gratan Development",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "devcontainer",
+  "workspaceFolder": "/workspace",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Shopify.ruby-lsp",
+        "Shopify.ruby-extensions-pack"
+      ],
+      "settings": {
+        "ruby.lsp.enabled": true,
+        "editor.formatOnSave": true,
+        "[ruby]": {
+          "editor.defaultFormatter": "Shopify.ruby-lsp"
+        }
+      }
+    }
+  },
+  
+  "postCreateCommand": "bash .devcontainer/scripts/ensure_ssh_config.sh && bundle install",
+  
+  "remoteUser": "vscode"
+}

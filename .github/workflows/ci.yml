@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    name: Ruby ${{ matrix.ruby }} - MySQL ${{ matrix.mysql }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['2.4', '2.5', '2.6', '2.7']
+        mysql: ['5.6', '5.7']
+    
+    services:
+      mysql56:
+        image: mysql:5.6
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+        ports:
+          - 14406:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      
+      mysql57:
+        image: mysql:5.7
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+        ports:
+          - 14407:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby ${{ matrix.ruby }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: bundle install
+
+      - name: Wait for MySQL
+        run: |
+          for i in {1..30}; do
+            if mysqladmin -h 127.0.0.1 -P 14406 -u root ping 2>/dev/null && \
+               mysqladmin -h 127.0.0.1 -P 14407 -u root ping 2>/dev/null; then
+              echo "MySQL services ready"
+              exit 0
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+          echo "MySQL failed to start"
+          exit 1
+
+      - name: Run tests - MySQL 5.6
+        if: matrix.mysql == '5.6'
+        run: bundle exec rspec
+        env:
+          MYSQL57: 0
+
+      - name: Run tests - MySQL 5.7
+        if: matrix.mysql == '5.7'
+        run: bundle exec rspec
+        env:
+          MYSQL57: 1

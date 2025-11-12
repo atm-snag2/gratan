@@ -1,11 +1,12 @@
 # Gratan
 
+[![Gem Version](https://badge.fury.io/rb/gratan.svg)](http://badge.fury.io/rb/gratan)
+[![CI](https://github.com/codenize-tools/gratan/workflows/CI/badge.svg)](https://github.com/codenize-tools/gratan/actions?query=workflow%3ACI)
+[![Dev Container](https://github.com/codenize-tools/gratan/workflows/Dev%20Container%20CI/badge.svg)](https://github.com/codenize-tools/gratan/actions?query=workflow%3A%22Dev+Container+CI%22)
+
 Gratan is a tool to manage MySQL permissions.
 
 It defines the state of MySQL permissions using Ruby DSL, and updates permissions according to DSL.
-
-[![Gem Version](https://badge.fury.io/rb/gratan.svg)](http://badge.fury.io/rb/gratan)
-[![Build Status](https://travis-ci.org/codenize-tools/gratan.svg?branch=master)](https://travis-ci.org/codenize-tools/gratan)
 
 ## Notice
 
@@ -139,12 +140,51 @@ end
 
 ## Run tests
 
+### Using Dev Container (Recommended)
+
+```sh
+# Inside the dev container
+bundle exec rspec
+
+# Test with MySQL 5.7
+MYSQL57=1 bundle exec rspec
+```
+
+### Local Development
+
 ```sh
 bundle install
-docker-compose up -d
+# Start MySQL services using dev container's docker-compose
+docker compose -f .devcontainer/docker-compose.yml up -d mysql56 mysql57
 bundle exec rake
 # MYSQL57=1 bundle exec rake
 ```
+
+## Development with Dev Containers
+
+Gratan supports [VS Code Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers) for a streamlined development setup.
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop)
+- [Visual Studio Code](https://code.visualstudio.com/)
+- [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+
+### Quick Start
+
+1. Clone the repository
+2. Open in VS Code
+3. When prompted, click "Reopen in Container" (or run command: `Dev Containers: Reopen in Container`)
+4. Wait for the container to build (~5 minutes first time, <2 minutes thereafter)
+5. Run tests: `bundle exec rspec`
+
+The dev container automatically provides:
+- Ruby environment matching project requirements
+- MySQL 5.6 and 5.7 test instances (ports 14406, 14407)
+- Pre-configured VS Code extensions (Ruby LSP, RSpec test adapter)
+- Persistent gem cache across container rebuilds
+
+For detailed setup instructions and troubleshooting, see [Dev Container Quickstart Guide](specs/001-devcontainer/quickstart.md).
 
 ## Similar tools
 * [Codenize.tools](http://codenize.tools/)
