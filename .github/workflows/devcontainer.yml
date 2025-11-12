@@ -1,0 +1,78 @@
+name: Dev Container CI
+
+on:
+  push:
+    branches: [ main, master, '001-devcontainer' ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  devcontainer-build:
+    name: Build and Test Dev Container
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and start containers
+        run: |
+          cd .devcontainer
+          docker compose build
+          docker compose up -d
+          
+      - name: Wait for MySQL containers to be healthy
+        run: |
+          cd .devcontainer
+          for i in {1..60}; do
+            if docker compose exec -T mysql56 mysqladmin -h localhost -u root ping 2>/dev/null && \
+               docker compose exec -T mysql57 mysqladmin -h localhost -u root ping 2>/dev/null; then
+              echo "MySQL containers ready"
+              exit 0
+            fi
+            echo "Waiting for MySQL... ($i/60)"
+            sleep 2
+          done
+          echo "MySQL containers failed to start"
+          docker compose logs
+          exit 1
+          
+      - name: Install dependencies
+        run: |
+          cd .devcontainer
+          docker compose exec -T devcontainer bundle install
+
+      - name: Verify Ruby environment
+        run: |
+          cd .devcontainer
+          docker compose exec -T devcontainer ruby --version
+          docker compose exec -T devcontainer bundle --version
+          
+      - name: Verify MySQL environment variables
+        run: |
+          cd .devcontainer
+          docker compose exec -T devcontainer env | grep MYSQL
+
+      - name: Run tests (MySQL 5.6)
+        run: |
+          cd .devcontainer
+          docker compose exec -T devcontainer bash -c 'cd /workspace && bundle exec rspec'
+
+      - name: Run tests (MySQL 5.7)
+        run: |
+          cd .devcontainer
+          docker compose exec -T devcontainer bash -c 'cd /workspace && MYSQL57=1 bundle exec rspec'
+
+      - name: Check gem persistence
+        run: |
+          cd .devcontainer
+          docker compose exec -T devcontainer bash -c 'ls -la /usr/local/bundle && bundle list'
+
+      - name: Cleanup
+        if: always()
+        run: |
+          cd .devcontainer
+          docker compose down -v

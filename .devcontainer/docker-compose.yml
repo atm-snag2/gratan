@@ -1,0 +1,62 @@
+services:
+  devcontainer:
+    image: mcr.microsoft.com/devcontainers/ruby:2
+    volumes:
+      - ..:/workspace:cached
+      # Persist Bundler gems for faster rebuilds
+      - gratan-gems:/usr/local/bundle
+    command: sleep infinity
+    working_dir: /workspace
+    networks:
+      - gratan-dev
+    depends_on:
+      mysql56:
+        condition: service_healthy
+      mysql57:
+        condition: service_healthy
+    environment:
+      - BUNDLE_PATH=/usr/local/bundle
+      - MYSQL_HOST_56=mysql56
+      - MYSQL_HOST_57=mysql57
+      - MYSQL_PORT=3306
+
+  mysql56:
+    image: mysql:5.6
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "14406:3306"
+    networks:
+      - gratan-dev
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+
+  mysql57:
+    image: mysql:5.7
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "14407:3306"
+    networks:
+      - gratan-dev
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+
+networks:
+  gratan-dev:
+    driver: bridge
+
+volumes:
+  gratan-gems:
